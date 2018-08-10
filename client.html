@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>WebSocket Client</title>
+    <!-- <link rel="stylesheet" href="style.css"> -->
+    <!-- <script src="script.js"></script> -->
+    <script>
+        var ws;
+
+        function connect() {
+            // ws = new WebSocket('ws://localhost:8080');
+            ws = new WebSocket('ws://luso.cs.ucdavis.edu:8080');
+            
+            ws.onopen = function(evt) {
+                writeToScreen("CONNECTED");
+
+                // get scene JSON
+                var msg = {
+                    jsonrpc: "2.0",
+                    method: "getScene",
+                    params: {},
+                    id: 1
+                };
+                ws.send(JSON.stringify(msg));
+
+                update();
+            };
+            
+            ws.onclose = function(evt) {
+                writeToScreen("DISCONNECTED");
+            };
+
+            ws.onmessage = function(evt) {
+                // writeToScreen("RESPONSE: " + evt.data);
+
+                var msg = JSON.parse(evt.data);
+
+                if ('result' in msg && 'id' in msg && msg.id == 1) {
+                    writeToScreen("scene = " + JSON.stringify(msg.result));
+                } else if ('method' in msg && msg.method == 'frame') {
+
+                    // show the frame
+                    document.getElementById('resultImage').setAttribute('src', msg.params.data);
+                }
+            };
+
+            ws.onerror = function(evt) {
+                writeToScreen("ERROR: " + evt.data);
+            };
+        }
+
+        function disconnect() {
+            ws.close();
+        }
+
+        function update() {
+            var amb = document.getElementById("ambient").value / 100.0;
+                
+            var msg = {
+                jsonrpc: "2.0",
+                method: "requestFrame",
+                params: {
+                    scene: {
+                        volume: {
+                            material: {
+                                ambient: amb
+                            }
+                        }
+                    }
+                }
+                // no id because it's a notification
+            };
+            ws.send(JSON.stringify(msg));
+        }
+
+        function writeToScreen(message) {
+            document.getElementById("response").innerHTML += message + "<br/>";
+        }
+    </script>
+  </head>
+  <body>
+    <!-- page content -->
+    <p>
+        <button type="button" onclick="connect()">Connect</button>
+        <button type="button" onclick="disconnect()">Disconnect</button>
+        <button type="button" onclick="update()">Update</button>
+    </p>
+    <p>
+        Ambient:<input type="range" min="0" max="100" value="50" class="slider" id="ambient" oninput="update()">
+    </p>
+    <p>
+        <img style='display:block; width:800px;height:600px;' id='resultImage'/>
+    </p>
+    <p id="response"></p>
+  </body>
+</html>
